@@ -1,0 +1,5 @@
+﻿  IFunctions.cpp
+  MXTopoTools.cpp
+  DllEntry.cpp
+  LINK : C:\Apps\Autodesk\3ds Max 2020\Plugins\MXTopoTools.gup not found or not built by the last incremental link; performing full link
+LINK : fatal error LNK1104: cannot open file 'bmm.lib'
