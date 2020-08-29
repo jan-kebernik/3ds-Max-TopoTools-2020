@@ -1,0 +1,2 @@
+rename the _vs folder and the _suo file to .vs and .suo
+gihub considers these hidden
