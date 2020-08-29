@@ -1,0 +1,669 @@
+ <!DOCTYPE html>
+<html lang="en-US">
+	<head>
+		<meta charset="UTF-8">
+		<meta name="keywords" content="HTML, CSS">
+		<meta name="description" content="TopoTools help file">
+		<meta name="author" content="Jan Kebernik">
+		<meta name="viewport" content="width=device-width, initial-scale=1.0">
+		<link rel="stylesheet" href="res\styles.css">
+		<title>TopoTools Help</title>
+	</head>
+	<body>
+		<div class="container_0">
+			<!-- left padding -->
+			<div class="padding_1"></div>
+			<!-- actual stuff -->
+			<div class="container_1">
+				<div class="header">
+					<h5>3ds Max TopoTools 2020 Plugin Help</h5>
+				</div>
+				<div class="container_2">
+					<div class="sidebar_container">
+						<div class="sidebar_header">
+							<a href="#top"><h4>Navigation</h4></a>
+						</div>
+						<div class="sidebar_list">
+							<ul>
+								<li><a href="#disclaimer">Disclaimer</a></li>
+								<li><a href="#introduction">Introduction</a></li>
+								<li><a href="#installation">Installation</a></li>
+								<li><a href="#the_user_interface"><b>The User Interface</b></a></li>
+								<li><a href="#ui_node_and_set_a">UI: Node &amp; Set (A)</a></li>
+								<li><a href="#ui_set_ops">UI: Set Ops</a></li>
+								<li><a href="#ui_node_and_set_b">UI: Node &amp; Set (B)</a></li>
+								<li><a href="#ui_symmetry_selection">UI: Symmetry Selection</a></li>
+								<li><a href="#ui_symmetry">UI: Symmetry</a></li>
+								<li><a href="#ui_symmetry_skin">UI: Symmetry (Skin)</a></li>
+								<li><a href="#ui_conform_selection">UI: Conform Selection</a></li>
+								<li><a href="#ui_conform">UI: Conform</a></li>
+								<li><a href="#ui_transfer_skin">UI: Transfer Skin</a></li>
+								<li><a href="#ui_attach_detach">UI: Attach/Detach</a></li>
+								<li><a href="#ui_remove">UI: Remove</a></li>
+								<li><a href="#ui_strip_weights">UI: Strip Weights</a></li>
+								<li><a href="#ui_misc">UI: Misc.</a></li>
+								<li><a href="#ui_message_log">UI: Message Log</a></li>
+								<li><a href="#ui_scene_data">UI: Scene Data</a></li>
+								<li><a href="#ui_info">UI: Info</a></li>
+								<li><a href="#licensing_legal"><b>Licensing &amp; Legal</b></a></li>
+								<li><a href="#contact"><b>Contact the author</b></a></li>
+							</ul>
+						</div>
+					</div>
+					<div class="content">
+						<h1 id="top">TopoTools 2020</h1>
+						<h2 id="disclaimer">Disclaimer</h2>
+						<hr>
+						<p>This file documents the scope and functionality of the TopoTools plugin for 3ds Max version 2020 or later. If you have questions about the plugin or have experienced seemingly strange behaviour or if you simply don't know where to start, please read this document before filing a bug report.</p>
+						<p>If you have experienced an actual bug (a raised exception, a crash, a freeze, etc...), or if some observed behaviour is not described in this document, feel free to contact me using the e-mail address listed at the bottom of this page. When doing so, please include the stack-trace if there is one. If the error is only logged in the TopoTools UI itself, please provide a screenshot or a transcribed log. If you can provide a reproducible scenario for triggering the error, the chances of a fix are much improved. If not, at least describe what you were attempting to do and the behaviour you were expecting.</p>
+						<p>Use the list on the left side to quickly jump to a specific section of this document.</p>
+						<h2 id="introduction">Introduction</h2>
+						<hr>
+						<p>TopoTools consists of two parts:</p>
+						<ol>
+							<li>A set of C++ functions published to 3ds Max itself.</li>
+							<li>A user interface written in MaxScript that makes use of those functions.</li>
+						</ol>
+						<p><i>(The C++ plugin does not maintain any state beyond its SDK-handled lifecycle. It is a purely functional interface.)</i></p>
+						<p>Because many of the exposed function have rather long and cumbersome signatures, it is not really recommended to use them directly, unless otherwise specified. A handful of functions are not safe to use in a general context.</p>
+						<p>At the core of TopoTools is the idea that two meshes with the same relations between their respective verts, edges and faces are topologically identical. Any two boxes with eight corners each are always topologically identical regardless of their actual coordinates or their vert-, egde- and face-orders under the hood.</p>
+						<p>In this vein, TopoTools allows the generation of so-called traversal orders and symmetry orders. Based on these orders, two meshes can be conformed to one another or it may be possible to losslessly mirror the Skin-weights from one side of a mesh to the other.</p>
+						<p>TopoTools simply aims to make such tasks easy and efficient, without relying on any kind of guess-work. It will always provide purely deterministic results and it won't introduce avoidable floating-point inaccuracies.</p>
+						<h2 id="traversal_orders">Traversal orders</h2>
+						<hr>
+						<p>A traversal order is simply a list of vert indices into a topology. In order to generate them, several things need to be defined:</p>
+						<ol>
+							<li>A set of edge-connected faces. Let's call that a <strong>patch</strong>.</li>
+							<li>A vert, edge and face to start with.</li>
+						</ol>
+						<table>
+							<tr>
+								<td><img src="res\img_trav_01.png" alt="Traversal order" style="width:381px;height:351px;float:left;">
+								<p>Let's consider an example.</p>
+								<p>The red faces represent the faces in our selection set. In this case, we have two separate <strong>patches</strong>, because even though they are connected, they are only connected by a vert. Because our edge and vert sets do not touch the smaller patch at all, TopoTools will simply ignore it. Only the larger patch qualifies.</p>
+								<p>In this case, we only have a single vert (yellow) in our set. That is going to have to be our starting vert. It qualifies because it is connected to an edge (green) that is also in our set. This edge will be our starting edge. But it is now ambiguous which face is the starting face. Face A or face B? TopoTools does not guess. This information must be specified. In this case, another edge (blue) was specified, meaning face A is our starting face.</p>
+								<p>All this work, and more, is done by TopoTools to first extract a starting selection from a selection set. Constellations that do not work are ignored. No ambiguity is permitted, so if there are several valid starting points, the selection set must be reduced by the user.</p>
+								<p>Once a valid starting point could be determined, TopoTools will build a stack of verts and traverse the entire patch in a deterministic fashion. Meaning: Angles and coordinates to not matter. Vert-, edge- and face-ordering does not matter. Even if you changed the example plane extensively, such that its internal structure is now complelety different, TopoTools will always generate an equivalent <strong>logical</strong> ordering if given an equivalent selection and an equivalent topology.</p>
+								<p>Each vertex will only be contained at most once in any generated order.</p>
+								<p>TopoTools uses these traversal orders, as well as symmetry orders, to allow for a matching of topologically identical geometries. This functionality rests at the core of this plugin.</p>
+								</td>
+							</tr>
+						</table>
+						<h2 id="installation">Installation</h2>
+						<hr>
+						<p>The installation procedure is fairly painless, as far as 3ds Max goes.</p>
+						<ol>
+							<li>Determine your 3ds Max <strong>install directory</strong>. This is usually: <pre>...\Autodesk\3ds Max 2020\</pre></li>
+							<li>Copy the <strong>Plugins</strong> folder and the <strong>UI_ln</strong> folder to the <strong>install directory</strong>.</li>
+							<li>Determine your 3ds Max <strong>user macros directory</strong>. Launch 3ds Max, open the <strong>MaxScript listener</strong> (press F11) and execute the following command: <pre>GetDir #userMacros</pre></li>
+							<li>Copy <strong>MXTopoTools.mcr</strong> and the <strong>MXTopoTools</strong> folder to your <strong>user macros directory</strong>.</li>
+							<li>Re-launch 3ds Max so that it can find the macro script.</li>
+							<li>Go to <strong>Customize</strong> 🠊 <strong>Customize User Interface</strong>. Click the <strong>Toolbars</strong> tab, set <strong>Group</strong> to <strong>Main UI</strong>. In the <strong>Category</strong> list, click on <strong>TopoTools</strong>. It should list an action called <strong>TopoTools Dialog</strong>.</li>
+							<li>Click on <strong>New...</strong> to create a new toolbar. Call it 'TopoToolsBar' or something similarly expressive. Drag the <strong>TopoTools Dialog</strong> action onto the new toolbar. Dock the toolbar somewhere.</li>
+							<li>Re-launch 3ds Max one more time to save the changes to its UI.</li>
+						</ol>
+						<p>If you now click the newly available button, the TopoTools dialog will be displayed. The next section will go into further detail on how to use it all.</p>
+						<h2 id="the_user_interface">UI: The User Interface</h2>
+						<hr>
+						<img src="res\img_00.png" alt="The full dialog" style="width:288px;height:877px;float:left;">
+						<p>That's a lot of buttons and most of them don't even have a descriptive name. Many buttons have alternate functionalities depending on which combination of modifiers (CTRL, SHIFT, ALT) is pressed when you click them.</p>
+						<p>This sounds unmanagable at first, but once you take the time to get a feel for this dialog, you'll find that it's actually not that hard to work with.</p>
+						<p>Similar functionality is clustered together with similar looking buttons. Most buttons will be disabled most of the time, simply because their functionality does not apply in the current context. And every button has a descriptive tooltip available.</p>
+						<p>All operations exposed by this dialog are undoable, except for the <em>Scene Data</em> operations.</p>
+						<p><i>Because this dialog, or rather its underlying script, can use up a good chunk of memory, it may automatically increase the MaxScript heap size to at least 128 MiBs.</i></p>
+						<p>Let's now go over each part in order.</p>
+						<h3 id="ui_node_and_set_a">UI: Node &amp; Set (A)</h3>
+						<hr>
+						<p>This is where scene <strong>nodes</strong> and their associated <strong>selection set</strong>s are managed.</p>
+						<table>
+							<tr>
+								<td><img src="res\img_ui_a_01.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><p>Pick a scene node, using 3ds Max pick-button functionality. The node is inserted into the node list below, unless already contained.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_a_02.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>Pick the currently selected scene node, if exactly one is selected. The node is inserted into the node list below, unless already contained.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_a_03.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>Select the currently active node in the scene. <i>This will work even if this node is hidden/frozen. This action is undoable.</i></p></td>
+							</tr>	
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_a_04.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>Remove the active node from the node list and delete its associated data. If the [ALT+CTRL+SHIFT] modifiers are pressed, will remove all nodes from the list and delete all of their associated data.</p></td>
+							</tr>
+						</table>
+						<p><i>Most functionality in TopoTools requires nodes to be <strong>Editable Poly</strong> objects and/or have a <strong>Skin</strong> modifier. TopoTools will automatically detect if a tracked node is structurally changed, deleted or un-deleted, and enable or disable related functionality accordingly.</i></p>
+						<table>
+							<tr>
+								<td><img src="res\img_ui_a_05.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><p>This drop-down menu represents the managed node list. Each node in this this list has data associated with it by TopoTools. The node that is currently selected in this list is referred to as the <strong>primary</strong> node or the <strong>A</strong> node.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_a_06.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>These two buttons simply allow you to re-order the nodes list. If the [CTRL] modifier is pressed down, the currently active node will be moved to the top or bottom of the list. If the [CTRL+ALT+SHIFT] modifiers are pressed down, the list is sorted lexicographically in ascending or descending order, based on current node names.</p></td>
+							</tr>
+						</table>
+						<p><i>Node name changes are automatically detected. The list will change to reflect this. If a tracked node is deleted, its displayed name is prefixed with <strong>*D</strong> instead of its position in the list. This change is reverted if the node gets un-deleted later on.</i></p>
+						<hr>
+						<p>The next UI elements in this group relate to <strong>Selection Set</strong>s. A selection set is simply an unordered set of verts, edges, faces and handles. Handles, in the context of TopoTools, simply refer to the vertex selection handles of a Skin modifier. They usually pertain only to the top-most enabled Skin modifier, for the sake of simplicity (and my own sanity). Each managed node can have an arbritrary number of selection sets associated with it.</p>
+						<br>
+						<table>
+							<tr>
+								<td><img src="res\img_ui_a_07.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><p>Create a new empty selection set and insert it into the sets list.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_a_08.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>Create temporary in-memory snapshot copy of the current selection set.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_a_09.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>Insert a copy of the in-memory snapshot as a new selection set into the sets list of the current primary node. This allows you to copy selections from one node to another in an unqualified way. Because selections are just bit arrays the results depend on the target topology.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_a_10.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>Remove the current set from the list and delete its data. If the [ALT+CTRL+SHIFT] modifiers are pressed, will remove all sets for the node and delete their data.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_a_11.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>This text field allows you to name the current selection set.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_a_12.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>This is the list of selection sets associated with the current primary node. Selecting a set makes it the primary set, or the current set.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_a_13.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>These two buttons simply allow you to re-order the sets list. If the [CTRL] modifier is pressed down, the currently active set will be moved to the top or bottom of the list. If the [CTRL+ALT+SHIFT] modifiers are pressed down, the list is sorted lexicographically in ascending or descending order, based on current set names.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_a_14.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>This button creates a <strong>traversal order</strong> for the current primary node, using its current selection set as the starting point. Each node can have one such order at a time. The label to its right displays which set was used to generate this order (indicated by name and current position in the sets list). If the [ALT] modifier is pressed down, an attempt is made to re-build the traversal order using the same set again, even it is no longer the currently active set.</p>
+								<p><i>It is a good idea to allocate a dedicated selection set for this and not modify it after a traversal order has been generated.</i></p></td>
+							</tr>
+						</table>
+						<h3 id="ui_set_ops">UI: Set Ops</h3>
+						<hr>
+						<p>The buttons in this group all pertain to the <strong>primary node</strong> and <strong>primary selection set</strong>. If the primary node is an editable poly or has a skin modifier, the upper row of buttons let you select the selection set's stored elements. Any change in the node's selection made this way are undoable.</p>
+						<table>
+							<tr>
+								<td><img src="res\img_ui_b_01.png" alt="btn_pk" style="width:123px;height:51px;"></td>
+								<td><p>Set the node's face selection to the set's stored faces. If [CTRL] is pressed, will instead add the stored faces to the selection. If [SHIFT] is pressed, will instead subtract the stored faces from the selection.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_b_02.png" alt="btn_pk" style="width:123px;height:51px;"></td>
+								<td><hr><p>Set the node's edge selection to the set's stored edges. If [CTRL] is pressed, will instead add the stored edges to the selection. If [SHIFT] is pressed, will instead subtract the stored edges from the selection.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_b_03.png" alt="btn_pk" style="width:123px;height:51px;"></td>
+								<td><hr><p>Set the node's vert selection to the set's stored verts. If [CTRL] is pressed, will instead add the stored verts to the selection. If [SHIFT] is pressed, will instead subtract the stored verts from the selection.</p>
+								<p><i>If [ALT] is pressed, will instead set the skin modifier's handle selection to the set's stored verts. If [ALT+CTRL] is pressed, will instead add the stored verts to the skin modifier's handle selection. If [ALT+SHIFT] is pressed, will instead subtract the stored verts from the skin modifier's handle selection.</i></p>
+								</td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_b_04.png" alt="btn_pk" style="width:123px;height:51px;"></td>
+								<td><hr><p>Set the skin modifier's handle selection to the set's stored handles. If [CTRL] is pressed, will instead add the stored handles to the selection. If [SHIFT] is pressed, will instead subtract the stored verts from the selection.</p>
+								<p><i>If [ALT] is pressed, will instead set the nodes's vert selection to the set's stored handles. If [ALT+CTRL] is pressed, will instead add the stored handles to the nodes's vert selection. If [ALT+SHIFT] is pressed, will instead subtract the stored handles from the nodes's vert selection.</i></p>
+								</td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_b_05.png" alt="btn_pk" style="width:123px;height:51px;"></td>
+								<td><hr><p>Set stored faces to node's face selection. If [CTRL] is pressed, add node's face selection to storage instead. If [SHIFT] is pressed, subtract node's face selection from storage instead.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_b_06.png" alt="btn_pk" style="width:123px;height:51px;"></td>
+								<td><hr><p>Set stored edges to node's edge selection. If [CTRL] is pressed, add node's edge selection to storage instead. If [SHIFT] is pressed, subtract node's edge selection from storage instead.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_b_07.png" alt="btn_pk" style="width:123px;height:51px;"></td>
+								<td><hr><p>Set stored verts to node's vert selection. If [CTRL] is pressed, add node's vert selection to storage instead. If [SHIFT] is pressed, subtract node's vert selection from storage instead.</p>
+								<p><i>If [ALT] is pressed, set stored handles to node's vert selection instead. If [ALT+CTRL] is pressed, add node's vert selection to stored handles instead. If [ALT+SHIFT] is pressed, subtract node's vert selection from stored handles instead.</i></p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_b_08.png" alt="btn_pk" style="width:123px;height:51px;"></td>
+								<td><hr><p>Set stored handles to skin modifier's handle selection. If [CTRL] is pressed, add skin modifier's handle selection to storage instead. If [SHIFT] is pressed, subtract skin modifier's handle selection from storage instead.</p>
+								<p><i>If [ALT] is pressed, set stored verts to skin modifier's handle selection instead. If [ALT+CTRL] is pressed, add skin modifier's handle selection to stored verts instead. If [ALT+SHIFT] is pressed, subtract skin modifier's handle selection from stored verts instead.</i></p></td>
+							</tr>
+						</table>
+						<h3 id="ui_node_and_set_b">UI: Node &amp; Set (B)</h3>
+						<hr>
+						<p>This group allows you so specify a <strong>secondary</strong> (or a <strong>B</strong>) node and selection set. These are needed for any <strong>conform</strong> or <strong>transfer</strong> operations.</p>
+						<table>
+							<tr>
+								<td><img src="res\img_ui_c_01.png" alt="btn_pk" style="width:123px;height:23px;"></td>
+								<td><p>Displays the secondary node (indicated by name and position in the nodes list).</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_c_02.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>Assign the primary node and selection set as the secondary node and selection set.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_c_03.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>This button creates a <strong>traversal order</strong> for the secondary node, using the secondary selection set as the starting point. The label to its right displays which set was used to generate this order (indicated by name and current position in the sets list). If the [ALT] modifier is pressed down, an attempt is made to re-build the traversal order using the same set again, even it is no longer the currently active set.</p>
+								<p><i>It is a good idea to allocate a dedicated selection set for this and not modify it after a traversal order has been generated.</i></p></td>
+								</td>
+							</tr>
+						</table>
+						
+						<h3 id="ui_symmetry_selection">UI: Symmetry Selection</h3>
+						<hr>
+						<table>
+							<tr>
+								<td><img src="res\img_ui_d_01.png" alt="btn_pk" style="width:123px;height:23px;"></td>
+								<td><p>This button creates a <strong>symmetry order</strong> for the primary node, using the current selection set as the starting point. If the [ALT] modifier is pressed down, an attempt is made to re-build the symmetry order using the same set again, even it is no longer the currently active set.</p>
+								<p><i>It is a good idea to allocate a dedicated selection set for this and not modify it after a traversal order has been generated.</i></p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_d_02.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>Displays which set was used to generate the symmetry order (indicated by name and current position in the sets list).</p></td>
+								</td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_d_03.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>Swaps the "left" side of the node's symmetry order with its "right" side.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_d_04.png" alt="btn_pk" style="width:123px;height:79px;"></td>
+								<td><hr><p>Set primary node's vert/edge/face selection to the "left"-side elements of the symmetry order. If [CTRL] is pressed, add the symmetry order's "left"-side elememts to the node's selection instead. If [SHIFT] is pressed, subtract the symmetry order's "left"-side elements from the node's selection instead.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_d_05.png" alt="btn_pk" style="width:123px;height:79px;"></td>
+								<td><hr><p>Set primary node's vert/edge/face selection to the "middle" elements of the symmetry order. If [CTRL] is pressed, add the symmetry order's "middle" elememts to the node's selection instead. If [SHIFT] is pressed, subtract the symmetry order's "middle" elements from the node's selection instead.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_d_06.png" alt="btn_pk" style="width:123px;height:79px;"></td>
+								<td><hr><p>Set primary node's vert/edge/face selection to the "right"-side elements of the symmetry order. If [CTRL] is pressed, add the symmetry order's "right"-side elememts to the node's selection instead. If [SHIFT] is pressed, subtract the symmetry order's "right"-side elements from the node's selection instead.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_d_07.png" alt="btn_pk" style="width:123px;height:79px;"></td>
+								<td><hr><p>Sets the primary node's vert/edge/face selection to its mirrored version. If [CTRL] is pressed, adds the mirrored selection to the node's current selection instead. If [SHIFT] is pressed, subtracts the mirrored selection from the node's current selection instead.</p></td>
+							</tr>
+						</table>
+						
+						<h3 id="ui_symmetry">UI: Symmetry</h3>
+						<hr>
+						<table>
+							<tr>
+								<td><img src="res\img_ui_e_01.png" alt="btn_pk" style="width:123px;height:23px;"></td>
+								<td><p>The slider and spinner are linked and constrained to a range between 0.0 and 1.0. This value determines the "blend weight" for the <strong>Flip</strong> and <strong>Blend</strong> operations below.</p>
+								<p>The blend weight simply controls how strong these operations will be. At 0.0, no effect will take place, at 0.5, the vertex coordinates are interpolated halfway between their current value and the full effect. You get it.</p>
+								<p><i>If this value is very close to 0.0 or 1.0, the implementation will forego actual interpolation to prevent  floating point inaccuracies.</i></p></td>
+								</td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_e_02.png" alt="btn_pk" style="width:123px;height:23px;"></td>
+								<td><hr><p>Flips or swaps vertex positions, depending on primary node's current vert selection. If a vert is selected and its symmetrical counterpart is also selected, their coordinates are swapped. Selected verts whose counterpart is not selected have their coordinates inverted (4 becomes -4, -2 becomes 2, etc...). Unselected vert pairs are unaffected. If [ALT] is pressed, the current selection set is used instead of the node's actual selection.</p>
+								<p><i>Only the x, y or z coordinates are affected, depending on what is configured below.</i></p>
+								<p><i>Swapping is lossless, flipping is done with double precision.</i></p>
+								</td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_e_03.png" alt="btn_pk" style="width:123px;height:23px;"></td>
+								<td><hr><p>Mirrors or normalizes vertex positions, depending on primary node's current vert selection. If a vert is selected and its symmetrical counterpart is also selected, the vertex pair is normalized, meaning they both receive equivalent mirrored positions along their "side" of the mirror axis. If only one vert of such a pair is selected, the <em>counterpart</em> receives a copy of its mirrored coordinates. Unselected vert pairs are unaffected. If [ALT] is pressed, the current selection set is used instead of the node's actual selection.</p>
+								<p><i>During normalization, the total distance between two verts is preserved. This helps a great deal with preserving the volume of an overall geometry. But this is by no means a perfect solution. A more complete solution would require actual volumetric analysis, which is difficult, computationally expensive and has its own problems.</i></p>
+								<p><i>There is an unsolveable edge case that normalization cannot handle predictably: When the distance along the mirror axis is <em>exactly</em> 0, no information is available as to which "side" either vert belongs to. In this very unusual case (think about what that even looks like), the sides are chosen arbitrarily and the user will need to flip the affected verts specifically.</i></p>
+								</td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_e_04.png" alt="btn_pk" style="width:123px;height:23px;"></td>
+								<td><hr><p>Determines the canonical local coordinate axis to use for <strong>Flip</strong> and <strong>Blend</strong>.</p></td>
+							</tr>
+						</table>
+						
+						<h3 id="ui_symmetry_skin">UI: Symmetry (Skin)</h3>
+						<hr>
+						<p>In order for symmetry operations to be applied to a skin modifier correctly, it is absolutey necessary to have a way to match "left"- and "right"-side bones against each other. Bone systems, unlike geometries, cannot be easily analyzed for unambiguous symmetries. However, symmetrical bone systems ususally have a consistent naming convention. TopoTools simply attempts to match bones based on their names and the specified affixes.</p>
+						<p><i>Not every bone in the scene is parsed. Only those that are listed in the skin modifier require proper naming.</i></p>
+						<br>
+						<table>
+							<tr>
+								<td><img src="res\img_ui_f_01.png" alt="btn_pk" style="width:123px;height:23px;"></td>
+								<td><p>Set primary node's top enabled Skin modifier's vert handle selection to the "left"-side verts of the symmetry order. If [CTRL] is pressed, add the symmetry order's "left"-side verts to the Skin modifiers's selection instead. If [SHIFT] is pressed, subtract the symmetry order's "left"-side verts from the Skin modifiers's selection instead.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_f_02.png" alt="btn_pk" style="width:123px;height:23px;"></td>
+								<td><hr><p>Set primary node's top enabled Skin modifier's vert handle selection to the "middle" verts of the symmetry order. If [CTRL] is pressed, add the symmetry order's "middle" verts to the Skin modifiers's selection instead. If [SHIFT] is pressed, subtract the symmetry order's "middle" verts from the Skin modifiers's selection instead.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_f_03.png" alt="btn_pk" style="width:123px;height:23px;"></td>
+								<td><hr><p>Set primary node's top enabled Skin modifier's vert handle selection to the "right"-side verts of the symmetry order. If [CTRL] is pressed, add the symmetry order's "right"-side verts to the Skin modifiers's selection instead. If [SHIFT] is pressed, subtract the symmetry order's "right"-side verts from the Skin modifiers's selection instead.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_f_04.png" alt="btn_pk" style="width:123px;height:23px;"></td>
+								<td><hr><p>Sets the primary node's top enabled Skin modifier's vert handle selection to its mirrored version. If [CTRL] is pressed, adds the mirrored selection to the Skin modifier's current selection instead. If [SHIFT] is pressed, subtracts the mirrored selection from the Skin modifier's current selection instead.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_f_05.png" alt="btn_pk" style="width:123px;height:23px;"></td>
+								<td><hr><p>Flips the bone lists or swaps weight data entirely for selected handles. If a handle is selected and its symmetrical counterpart is also selected, their weight data is completely swapped, including their bone list and dual-quaternion blending weight. If only one handle of a pair is selected, or if a middle handle is selected, then its bone list is replaced with a mirrored copy, meaning that any "left"-side bones are replaced with the matching "right"-side bones and vice versa. The actual weight data, including the dual-quaternion blend weight will remain untouched. If [ALT] is pressed, the handles in the current selection set are used instead of the modifier's actual selection.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_f_06.png" alt="btn_pk" style="width:123px;height:23px;"></td>
+								<td><hr><p>Mirrors or normalizes weight data for selected handles. If a handle is selected and its symmetrical counterpart is also selected, both handles' weights are blended such that each side receives the average weights between the two, each receiving the correct bone list for its respective "side".</p>
+								<p>If only one handle of a pair is selected, the <em>counterpart</em> receives a mirrored copy of its weight-data. If [CTRL] is pressed, this direction is reversed.</p>
+								<p>If [ALT] is pressed, the current selection set's handles are used instead of the modifiers actual selection.</p>
+								<p><i>Because middle verts have no counterpart, they are always blended such that their weights are equally distributed among both sides.</i></p>
+								<p><i>During normalization, a sorted-by-influence list is constructed for each pair. The lowest influence bones or bone-pairs are dropped from this list until it conforms to the modifier's bone affect limit.</i></p>
+								<p><i>The modifier's bone affect limit must, therefore, be at least 2. Otherwise middle handles cannot be blended fairly. The resulting bone list must be capable of holding at least one pair of matching bones.</i></p>
+								</td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_f_07.png" alt="btn_pk" style="width:123px;height:23px;"></td>
+								<td><hr><p>Specify the "left"- and "right"-side bone matching affixes. These can be pretty much anything, as long as they consist of more than whitespace. Leading and trailing whitespace is trimmed.</p>
+								</td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_f_08.png" alt="btn_pk" style="width:123px;height:23px;"></td>
+								<td><hr><p>Specify whether the affixes are prefixes (leading patterns) or suffixes (trailing patterns).</p></td>
+							</tr>
+						</table>
+						
+						<h3 id="ui_conform_selection">UI: Conform Selection</h3>
+						<hr>
+						<p>This group of buttons enables the translation of selections between different nodes, by simply iterating over their traversal orders in lock-step.</p>
+						<br>
+						<table>
+							<tr>
+								<td><img src="res\img_ui_g_01.png" alt="btn_pk" style="width:123px;height:105px;"></td>
+								<td><p>Translate the primary node's hande/vert/edge/face selection and apply it to the secondary node. If [CTRL] is pressed, add the tranlated selection to the secondary node's selection instead. If [SHIFT] is pressed, subtract the translated selection from the secondary node's selection. If [ALT] is pressed, use the primary selection set instead of the primary node's selection.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_g_02.png" alt="btn_pk" style="width:123px;height:105px;"></td>
+								<td><hr><p>Translate the secondary node's hande/vert/edge/face selection and apply it to the primary node. If [CTRL] is pressed, add the tranlated selection to the primary node's selection instead. If [SHIFT] is pressed, subtract the translated selection from the primary node's selection. If [ALT] is pressed, use the seconday selection set instead of the secondary node's selection.</p></td>
+							</tr>
+						</table>
+						
+						<h3 id="ui_conform">UI: Conform</h3>
+						<hr>
+						<table>
+							<tr>
+								<td><img src="res\img_ui_h_01.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><p>The slider and the spinner are linked. Together they represent the "conform balance": At 0.0 the primary coordinates have full influence, the secondary ones have none. At 0.5 both have equal influence. And so on. The combined influence always adds up 100%.</p>
+								<p>Using this balance, it is fairly convenient to imitate the effects of a Morpher modifier, except for internally differing topologies.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_h_02.png" alt="btn_pk" style="width:123px;height:53px;"></td>
+								<td><hr><p>Blend the vert coordinates of the primary and secondary nodes' selected verts. Each of the three buttons handle selections differently:</p>
+								<p>The "A" button ignores the secondary selection.</p>
+								<p>The "B" button ignores the primary selection.</p>
+								<p>The "A + B" button uses the translated union of both selections.</p>
+								</td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_h_03.png" alt="btn_pk" style="width:123px;height:53px;"></td>
+								<td><hr><p>If the box on the left is checked, the "A" and "A + B" operations will use the primary selection set instead of the primary node's selection.</p>
+								<p>If the box on the right is checked, the "B" and "A + B" operations will use the secondary selection set instead of the secondary node's selection.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_h_04.png" alt="btn_pk" style="width:123px;height:23px;"></td>
+								<td><hr><p>The spinner on the left controls the blend weight for the primary node.</p>
+								<p>The spinner on the right controls the blend weight for the secondary node.</p>
+								<p>The blend weight simply controls how strong these operations will be. At 0.0, no effect will take place, at 0.5, the vertex coordinates are interpolated halfway between their current value and the full effect. You get it.</p>
+								<p><i>If this value is very close to 0.0 or 1.0, the implementation will forego actual interpolation to prevent  floating point inaccuracies.</i></p></td>
+							</tr>
+						</table>
+						
+						
+						
+						<h3 id="ui_transfer_skin">UI: Transfer Skin</h3>
+						<hr>
+						<p>These operations allow for the lossless transfer of weight data between two skin modifiers. Something that is not possible with 3ds Max alone (It will approximate. Badly.).</p>
+						<p>All that is needed is for the traversal orders to be ready and for the bones used by each modifier to have a affix-matchable naming convention.</p>
+						<p><i>Because the adding of bones to a Skin modifier is not truly undoable, TopoTools simply requires that the needed bones already exist in the target modifier. Explanation: Skin modifier simply hides a bone when it is removed or its addition undone. And because it's closed source, there's nothing I can do. Skin modifier is notorius for being inconvenient.</i></p>
+						<br>
+						<table>
+							<tr>
+								<td><img src="res\img_ui_i_01.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><p>Transfer weight data of selected handles in the primary node's top enabled Skin modifier to the top enalbed Skin modifier of the the secondary node. The selection is translated using both node's traversal orders  and the two modifier's bones are matched by name and affix. If [ALT] is pressed, the primary selection set will be used instead of the primary modifier's selection.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_i_02.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>Transfer weight data of selected handles in the secondary node's top enabled Skin modifier to the top enalbed Skin modifier of the the primary node. The selection is translated using both node's traversal orders  and the two modifier's bones are matched by name and affix. If [ALT] is pressed, the secondary selection set will be used instead of the secondary modifier's selection.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_i_03.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>Specify the primary and secondary bone matching affixes. These can be nything. Leading and trailing whitespace is trimmed.</p>
+								</td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_i_04.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>Specify whether the affixes are prefixes (leading patterns) or suffixes (trailing patterns).</p></td>
+							</tr>
+						</table>
+						
+						<h3 id="ui_attach_detach">UI: Attach/Detach</h3>
+						<hr>
+						<p>These operations allow combining several editable poly nodes into a single node. All nodes in an operation must have the same number of Skin modifiers. They may have other modifiers present, but they will be ignored.</p>
+						<p><i>The weight data is for all corresponding skin modifiers is combined losslessly. However, more complex structures, such as envelope data or gizmos are not transferred. The skin modifiers created this way are "clean" new modifiers, that do not hold any legacy garbage data (such as removed bones).</i></p>
+						<br>
+						<table>
+							<tr>
+								<td><img src="res\img_ui_j_01.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><p>Creates a clone of the primary node and attaches a clone of the secondary node to it. The verts, edges and faces of the second node a simply appended whole-sale to the first node's. This leads to a predictable outcome.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_j_02.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>Combines all nodes currently selected in the scene into a single new node. The nodes are appended to each other in arbitrary order.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_j_03.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>The primary node's currently selected faces are cloned into a new node. Weight data is preserved losslessly. If [CTRL] is pressed, the weights are additionally deleted from the primary node. If [ALT] is pressed, the primary selection set is used instead of the primary node's selection.</p></td>
+							</tr>
+						</table>
+						
+						<h3 id="ui_remove">UI: Remove</h3>
+						<hr>
+						<p>Remove faces or edges while preserving weight data losslessly.</i></p>
+						<br>
+						<table>
+							<tr>
+								<td><img src="res\img_ui_k_01.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><p>Deletes primary node's selected faces. Verts and edges that would end up isolated or incomplete will be removed as well. If [ALT] is pressed, the primary selection set is used instead of the primary node's selection.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_k_02.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>Removes primary node's selected edges, if they can be removed. Borders may not be possible to remove. If [CTRL] is pressed, any verts that, as a result of this operation, would end up connected to two or fewer edges are removed as well. If [ALT] is pressed, the primary selection set is used instead of the primary node's selection.</p></td>
+							</tr>
+						</table>
+						
+						<h3 id="ui_strip_weights">UI: Strip Weights</h3>
+						<hr>
+						<p>Remove bones or weights from primary nodes's top enabled Skin modifier that have influence at or below a certain threshold.</i></p>
+						<br>
+						<table>
+							<tr>
+								<td><img src="res\img_ui_l_02.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><p>The threshold value used by the other two operations.</p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_l_03.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>Removes all bones that are listed with an influence at or below the threshold from the skin modifier's weight lists. If [CTRL] is pressed, additionally also removes any fully unused bones from the skin modifer. If [SHIFT] is pressed, will only remove any fully unused bones from the skin modifier, leaving weight lists intact.</p>
+								<p><i>3ds Max does not support true removal of bones from skins. The bone will be hidden from the list instead.</i></p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_l_01.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr><p>This functions similarly to "Strip", but creates a clone of the primary node instead, and operates on all skin modifiers at the same time. Additionally, any unused bones are truly removed from the modifiers. However, envelope data, gizmos, etc. are not retained.</p></td>
+							</tr>
+						</table>
+						
+						<h3 id="ui_misc">UI: Misc.</h3>
+						<hr>
+						<table>
+							<tr>
+								<td><img src="res\img_ui_m_01.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td>
+								<img src="res\img_weld.gif" alt="btn_pk" style="width:234px;height:267px;float:right;">
+								<p>Welds one topologically connected run of border verts with a second run with the same number of verts. The verts are target welded in deterministic order, meaning the same input will result in the same "direction" for the target weld. If [CTRL] is pressed, this direction is reversed. It may be necessary to undo the operation and reverse the order to achieve the desired result. The selection of verts is either extracted from the currently selected border edges, or if none are selected a pair of exactly two verts must be selected. If [ALT] is pressed, the primary selection set is used instead of the primary node's selection.</p>
+								<p><i>The two runs are considered as a single run of corresponding vert pairs. The distance between the verts of a pair is irrelevant. A run always follows the orientation of its faces. This ensures that the pairs are always weldable.</i></p>
+								<p><i>The weight data is always preserved for the target handle. This is why interpolation is not supported. If a blended result is needed, both handle sides should simply share the same weight data beforehand.</i></p>
+								<p><i>The topological effects of this operatation can be achieved using 'polyops'. However, this implementation is orders of magnitude more efficient. Where polyops might take hours (or simply crash), this will take a second while consuming a fraction of the memory. Additionally, this operation preserves all weight-data losslessly. This is not achievable using only 3ds Max.</i></p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_m_02.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr>  
+								<img src="res\img_unsub.gif" alt="btn_pk" style="width:234px;height:204px;float:right;">
+								<p>Attempts to remove one level of subdivision from the primary node's face selection, while preserving weight data for all Skin modifiers. If a selected patch is closed or has no border verts that are also corners, it must have one vert selected that would survive this process. If [ALT] is pressed, uses the primary selection set instead of the primary node's selection.</p>
+								<p><i>The volume of the unsubdivided shape is not altered. Whatever loss in volume was initially incurred due to a smooth subdivision is not reversed.</i></p></td>
+							</tr>
+						</table>
+						<table>
+							<tr>
+								<td><br><img src="res\img_ui_m_03.png" alt="btn_pk" style="width:123px;height:25px;"></td>
+								<td><hr>
+								<img src="res\img_detri.gif" alt="btn_pk" style="width:228px;height:284px;float:right;">
+								<p>Attempts to detriangulate primary node's selected faces, meaning it will attempt to identify macthing pairs of triangles and turn them into quads by removing the shared edge. This process is deterministic, the shape of the resulting quads is irrelevant. By default, will assume that the selection is grid-shaped, meaning that its faces are laid out like a grid of quads of M*N dimensions. If [CTRL] is pressed, a stricter approach to matching is used that allows for more variant selections. However, this mode is less likely to find many unambiguous matches. If [ALT] is pressed, the primary selection set is used instead of the primary node's selection.</p></td>
+							</tr>
+						</table>
+						
+						<h3 id="ui_message_log">UI: Message Log</h3>
+						<hr>
+						<table>
+							<tr>
+								<td><img src="res\img_ui_n_01.png" alt="btn_pk" style="width:268px;height:128px;"></td>
+								<td><p>The message log simply provides feedback or logs errors. It will identify which TopoTools function experienced an error, together with a short message identifying the reason for the error. This approach was chosen in favour of more explicit exception handling, because exceptions 'stop-the-world'. Incorrect or insufficient input is common and must be dealt without bringing 3ds Max to its knees. The number the left side simply increases wich each message displayed. This way, identical messages can be differentiated.</p>
+								<p><i>Note that it will only log defined errors. If something truly unexpected happens, you just found an actual bug.</i></p>
+								</td>
+							</tr>
+						</table>
+						<h3 id="ui_scene_data">UI: Scene Data</h3>
+						<hr>
+						<table>
+							<tr>
+								<td><img src="res\img_ui_o_01.png" alt="btn_pk" style="width:208px;height:48px;"></td>
+								<td><p>The entire state of the TopoTools UI can be saved to the current scene. Or the scene may be cleansed of any remaining data. When loading, the current state is replaced entirely. Currently deleted nodes are accounted for at the moment of storage. Their associated data will still be stored, because it may prove useful still (no dead pointers are accrued, no worries.).</p>
+								<p>After storing or deleting scene data, the scene must be saved again for the changes to persist.</p>
+								<p><i>Most data is diligently serialized using a custom high-throughput integer compression scheme, inspired by <a href="https://github.com/lemire/JavaFastPFOR">FastPFOR</a> as implemented by Daniel Lemire. This version additionaly uses striped differential coding to dramatically increase the compression ratio for most inputs. If it appears that loading or storing takes too long, the reason is that 3ds Max will always verify that each array passed to a published function is a 'plain-old-data' array or a mixed type array. This can take a while, and there is little to be done.</i></p>
+								</td>
+							</tr>
+						</table>
+						
+						</table>
+						<h3 id="ui_info">UI: Info</h3>
+						<hr>
+						<table>
+							<tr>
+								<td><img src="res\img_ui_p_01.png" alt="btn_pk" style="width:58px;height:47px;"></td>
+								<td><p>Pressing this button will simply land you on this page again, in your default browser. If [ALT+CTRL+SHIFT] is pressed all tooltips (except for this button) are toggled. Use it if they get in the way.</p>
+								</td>
+							</tr>
+						</table>
+						
+						<h3 id="licensing_legal">Licensing &amp; Legal</h3>
+						<hr>
+						<p>All files belonging to the TopoTools plugin project are released under the Apache License Version 2.0 &copy; 2020 Jan Kebernik <a href = "http://www.apache.org/licenses/">(http://www.apache.org/licenses/)</a>.</p>
+						<p>A copy of this license must be included in all distributions of this project or parts thereof.</p>
+						
+						<h3 id="contact">Contact the author</h3>
+						<hr>
+						<p>Contact me at <a href="mailto:jan.kebernik@gmail.com">jan.kebernik@gmail.com</a> with problems or questions regarding TopoTools. Bugs should be reported to the <a href="https://github.com/jan-kebernik/3ds-Max-TopoTools-2020">github</a> repository directly.</p> 
+						
+					</div>
+				</div>
+				<div class="footer">
+					<h5>TopoTools 2020 &copy; 2020 Jan Kebernik</h5>
+				</div>
+			</div>
+			<!-- right padding -->
+			<div class="padding_1"></div>
+			
+		</div>
+	</body>
+</html>

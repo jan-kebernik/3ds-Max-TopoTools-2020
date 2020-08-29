@@ -1,0 +1,167 @@
+
+/*Prevent body from overflowing. Ensures that parent grid container has full control of viewport.*/
+body {
+	margin: 0px;
+	padding: 0px;
+	overflow: hidden;
+	
+	font-size: 130%;
+}
+
+.container_0 {
+	height: 100vh;
+	width: 100vw;
+	display: grid;
+	grid-template-columns: 1fr auto 1fr;
+	grid-template-rows: 1fr;
+	margin: 0px;
+	padding: 0px;
+	overflow: hidden;
+}
+
+.padding_1 {
+	background-color: #555555;
+	margin: 0px;
+	padding: 0px;
+}
+
+.container_1 {
+	display: grid;
+	grid-template-columns: 1fr;
+	grid-template-rows: auto 1fr auto;
+	margin: 0px;
+	padding: 0px;
+	overflow: hidden;
+	
+	color: #dddddd;
+	background-color: #444444;
+}
+
+.header {
+	margin: 0px;
+	padding: 5px;
+	background-color: #333333;
+	color: #cccccc;
+}
+
+.header h5 {
+	margin: 0px;
+	padding: 0px;
+}
+
+.footer {
+	margin: 0px;
+	padding: 5px;
+	background-color: #333333;
+	color: #cccccc;
+}
+
+.footer h5 {
+	margin: 0px;
+	padding: 0px;
+}
+
+.container_2 {
+	display: grid;
+	grid-template-columns: auto auto;
+	margin: 0px;
+	padding: 0px;
+	overflow: hidden;
+}
+
+.sidebar_container {
+	display: grid;
+	grid-template-rows: auto 1fr;
+	margin: 0px;
+	padding: 0px;
+	overflow: hidden;
+}
+
+.sidebar_header {
+	margin: 0px;
+	padding: 5px;
+	background-color: #333333;
+}
+
+.sidebar_header h4 {
+	margin: 0px;
+	padding: 0px;
+}
+
+.sidebar_list {
+	overflow-y: scroll;
+	margin: 0px;
+	padding: 0px;
+}
+
+.sidebar_list ul {
+	list-style-type: none;
+	margin: 0px;
+	padding: 5px;
+	height: 100%;
+}
+
+.sidebar_container a {
+  display: block;
+  color: #dddddd;
+  padding: 4px;
+  text-decoration: none;
+}
+
+/* Active/current link */
+.sidebar_container a.active {
+  background-color: #4CAF50;
+  color: white;
+}
+
+/* Links on mouse-over */
+.sidebar_container a:hover:not(.active) {
+  background-color: #555;
+  color: white;
+}
+
+
+
+
+
+
+
+
+
+.content {
+	overflow-y: scroll;
+	margin: 0px;
+	padding: 5px;
+	max-width: 800px;
+}
+
+.content p {
+	margin: 0px;
+	padding: 5px;
+}
+
+
+
+.content img {
+	margin: 0px;
+	padding: 5px;
+}
+
+
+.content tr {
+	margin: 0px;
+	padding: 5px;
+}
+
+
+
+
+/* Active/current link */
+.content a {
+  color: white;
+}
+
+
+
+
+
