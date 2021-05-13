@@ -1485,7 +1485,7 @@ public:
 						orderA.push(edgeA + 1);
 						orderB.push(edgeB + 1);
 					}
-					else if (!done[vertB]) {
+					else if (!done[edgeB]) {
 						// a is done, but b is not done
 						return ERR::order_mismatch;
 					}
